@@ -1,0 +1,13 @@
+{
+	"name": "stremio-addon-pyw",
+	"version": "1.0.0",
+	"description": "",
+	"scripts": {
+		"start": "node server.js"
+	},
+	"dependencies": {
+		"cheerio": "^1.0.0-rc.12",
+		"stremio-addon-sdk": "^1.6.10",
+		"sync-request": "^6.1.0"
+	}
+}
