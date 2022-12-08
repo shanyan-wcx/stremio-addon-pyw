@@ -63,7 +63,7 @@ builder.defineStreamHandler(async ({ type, id, config }) => {
 	return Promise.resolve({ streams: [] })
 })
 
-async function getMovieStreams(baseurl, streams, id, cookie) {
+async function getMovieStreams(baseurl, streams, id, cookie, type) {
 	var res = request('POST', baseurl + `/search?q=${id}`, {
 		headers: {
 			'cookie': cookie,
@@ -112,10 +112,11 @@ async function getMovieStreams(baseurl, streams, id, cookie) {
 						temp_video.each(async function (idx) {
 							var alt = $(this).children('span').attr('alt')
 							if (alt === '视频文件') {
+								fileIdx = idx
 								size = $(this).text().replace(/.*\(/, '').replace(/\)/, '')
+								promises.push(format(magnet, title, size, fileIdx, streams, type))
 							}
 						})
-						promises.push(format(magnet, title, size, streams))
 					}
 				}
 			})
@@ -125,10 +126,14 @@ async function getMovieStreams(baseurl, streams, id, cookie) {
 	return streams
 }
 
-async function getSeriesStreams(baseurl, streams, id, season, episode, cookie, token) {
+async function getSeriesStreams(baseurl, streams, id, season, episode, cookie, token, type) {
+	var episode_ = episode
+	if (episode * 1 < 10) {
+		episode_ = '0' + episode
+	}
 	if (season * 1 === 0) {
 		return streams
-	}else if (season * 1 != 1) {
+	} else if (season * 1 != 1) {
 		var res0 = request('GET', `https://www.myapifilms.com/imdb/idIMDB?idIMDB=${id}&token=${token}&format=json&language=zh-cn&aka=0&business=0&seasons=1&seasonYear=0&technical=0&trailers=0&movieTrivia=0&awards=0&moviePhotos=0&movieVideos=0&actors=0&biography=0&uniqueName=0&filmography=0&bornDied=0&starSign=0&actorActress=0&actorTrivia=0&similarMovies=0&goofs=0&keyword=0&quotes=0&fullSize=0&companyCredits=0&filmingLocations=0&directors=1&writers=1`)
 		var temp = JSON.parse(res0.getBody('utf8')).data.movies[0].seasons.seasonsBySeason
 		var sea = -1
@@ -190,19 +195,20 @@ async function getSeriesStreams(baseurl, streams, id, season, episode, cookie, t
 						var title = $2('.fileTree').children('p').text()
 						var temp_video = $2('.fileTree').children('li')
 						temp_video.each(async function (idx) {
+							var fileIdx = null
 							var alt = $(this).children('span').attr('alt')
 							if (alt === '视频文件') {
-								var filename = $(this).text()
+								var filename = $(this).text().replace(/\(.*\)/, '')
 								var re = new RegExp(`E|e0*${episode}`)
 								if (filename.match(re)) {
 									fileIdx = idx
 									size = $(this).text().replace(/.*\(/, '').replace(/\)/, '')
+									promises.push(format(magnet, title, size, fileIdx, streams, type))
 								}
 							}
 						})
-						promises.push(format(magnet, title, size, streams, fileIdx))
 					}
-				} else if (epi_ === episode * 1 && $1(this).children('td').children('a').attr('href') != undefined) {
+				} else if (epi_ === episode * 1 && $1(this).children('td').children('a').attr('href') != undefined && !$1(this).children('td').children('a').text().match(/EP01-/)) {
 					var url2 = $1(this).children('td').children('a').attr('href')
 					var res2 = request('POST', baseurl + url2, {
 						headers: {
@@ -220,17 +226,50 @@ async function getSeriesStreams(baseurl, streams, id, season, episode, cookie, t
 						var title = $2('.fileTree').children('p').text()
 						var temp_video = $2('.fileTree').children('li')
 						temp_video.each(async function (idx) {
+							var fileIdx = null
 							var alt = $(this).children('span').attr('alt')
 							if (alt === '视频文件') {
-								var filename = $(this).text()
+								var filename = $(this).text().replace(/\(.*\)/, '')
 								var re = new RegExp(`E|e0*${episode}`)
 								if (filename.match(re)) {
 									fileIdx = idx
 									size = $(this).text().replace(/.*\(/, '').replace(/\)/, '')
+									promises.push(format(magnet, title, size, fileIdx, streams, type))
 								}
 							}
 						})
-						promises.push(format(magnet, title, size, streams))
+					}
+				} else if (epi_ === 1 && $1(this).children('td').children('a').attr('href') != undefined && ($1(this).children('td').children('a').text().match(/EP|ep01-/) || $1(this).children('td').children('a').text().match(/[Ss]\d\d\./))) {
+					var url2 = $1(this).children('td').children('a').attr('href')
+					var res2 = request('POST', baseurl + url2, {
+						headers: {
+							'cookie': cookie,
+						},
+					})
+					if (res2.statusCode != 200) {
+						return
+					}
+					var $2 = cheerio.load(res2.getBody('utf8'))
+					var firstfile = $2('.fileTree').children('li').text().substring(0, 6)
+					if (firstfile.indexOf('BDMV') === -1) {
+						var size = ''
+						var magnet = $2('.tdown').children('a').eq(1).attr('href')
+						var title = $2('.fileTree').children('p').text()
+						var temp_video = $2('.fileTree').children('li')
+						temp_video.each(async function (idx) {
+							var fileIdx = null
+							var alt = $(this).children('span').attr('alt')
+							if (alt === '视频文件') {
+								var filename = $(this).text().replace(/\(.*\)/, '')
+								var re_ = new RegExp(`${episode_}\\\.`)
+								var re = new RegExp(`^${episode}\\\.`)
+								if (filename.match(re_) || (episode * 1 < 10 && filename.match(re))) {
+									fileIdx = idx
+									size = $(this).text().replace(/.*\(/, '').replace(/\)/, '')
+									promises.push(format(magnet, title, size, fileIdx, streams, type))
+								}
+							}
+						})
 					}
 				}
 			})
@@ -240,7 +279,7 @@ async function getSeriesStreams(baseurl, streams, id, season, episode, cookie, t
 	return streams
 }
 
-async function format(magnet, title, size, streams) {
+async function format(magnet, title, size, fileIdx = null, streams, type) {
 	var temp = magnet.split('&tr=')
 	var infoHash = temp[0].replace(/&dn=.*/g, '').replace(/magnet:\?xt=urn:btih:/g, '')
 	size = size.replace(/.*\(/g, '').replace(/\)/g, '')
@@ -275,12 +314,18 @@ async function format(magnet, title, size, streams) {
 		resolution += ' HDR'
 		sort_id -= 0.5
 	}
+	var icon = ''
+	if (type === 'movie') {
+		icon = '📽️'
+	} else if (type === 'series') {
+		icon = '📺'
+	}
 	var byte = await sizeToByte(size)
 	var stream = {
 		infoHash: infoHash,
-		fileIdx: null,
+		fileIdx: fileIdx,
 		//trackers: trackers,
-		description: title + '\n💿' + size,
+		description: icon + title + '\n💿' + size,
 		name: resolution,
 		sort_id: sort_id,
 		size: size,
