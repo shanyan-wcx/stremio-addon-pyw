@@ -63,7 +63,7 @@ builder.defineStreamHandler(async ({ type, id, config }) => {
 	return Promise.resolve({ streams: [] })
 })
 
-async function getMovieStreams(baseurl, streams, id, cookie, type) {
+async function getMovieStreams(baseurl, streams, id, cookie) {
 	var res = request('POST', baseurl + `/search?q=${id}`, {
 		headers: {
 			'cookie': cookie,
@@ -114,7 +114,7 @@ async function getMovieStreams(baseurl, streams, id, cookie, type) {
 							if (alt === '视频文件') {
 								fileIdx = idx
 								size = $(this).text().replace(/.*\(/, '').replace(/\)/, '')
-								promises.push(format(magnet, title, size, fileIdx, streams, type))
+								promises.push(format(magnet, title, size, fileIdx, streams))
 							}
 						})
 					}
@@ -126,7 +126,7 @@ async function getMovieStreams(baseurl, streams, id, cookie, type) {
 	return streams
 }
 
-async function getSeriesStreams(baseurl, streams, id, season, episode, cookie, token, type) {
+async function getSeriesStreams(baseurl, streams, id, season, episode, cookie, token) {
 	var episode_ = episode
 	if (episode * 1 < 10) {
 		episode_ = '0' + episode
@@ -203,7 +203,7 @@ async function getSeriesStreams(baseurl, streams, id, season, episode, cookie, t
 								if (filename.match(re)) {
 									fileIdx = idx
 									size = $(this).text().replace(/.*\(/, '').replace(/\)/, '')
-									promises.push(format(magnet, title, size, fileIdx, streams, type))
+									promises.push(format(magnet, title, size, fileIdx, streams))
 								}
 							}
 						})
@@ -234,7 +234,7 @@ async function getSeriesStreams(baseurl, streams, id, season, episode, cookie, t
 								if (filename.match(re)) {
 									fileIdx = idx
 									size = $(this).text().replace(/.*\(/, '').replace(/\)/, '')
-									promises.push(format(magnet, title, size, fileIdx, streams, type))
+									promises.push(format(magnet, title, size, fileIdx, streams))
 								}
 							}
 						})
@@ -266,7 +266,7 @@ async function getSeriesStreams(baseurl, streams, id, season, episode, cookie, t
 								if (filename.match(re_) || (episode * 1 < 10 && filename.match(re))) {
 									fileIdx = idx
 									size = $(this).text().replace(/.*\(/, '').replace(/\)/, '')
-									promises.push(format(magnet, title, size, fileIdx, streams, type))
+									promises.push(format(magnet, title, size, fileIdx, streams))
 								}
 							}
 						})
@@ -279,7 +279,7 @@ async function getSeriesStreams(baseurl, streams, id, season, episode, cookie, t
 	return streams
 }
 
-async function format(magnet, title, size, fileIdx = null, streams, type) {
+async function format(magnet, title, size, fileIdx = null, streams) {
 	var temp = magnet.split('&tr=')
 	var infoHash = temp[0].replace(/&dn=.*/g, '').replace(/magnet:\?xt=urn:btih:/g, '')
 	size = size.replace(/.*\(/g, '').replace(/\)/g, '')
@@ -314,18 +314,12 @@ async function format(magnet, title, size, fileIdx = null, streams, type) {
 		resolution += ' HDR'
 		sort_id -= 0.5
 	}
-	var icon = ''
-	if (type === 'movie') {
-		icon = '📽️'
-	} else if (type === 'series') {
-		icon = '📺'
-	}
 	var byte = await sizeToByte(size)
 	var stream = {
 		infoHash: infoHash,
 		fileIdx: fileIdx,
 		//trackers: trackers,
-		description: icon + title + '\n💿' + size,
+		description: title + '\n💿' + size,
 		name: resolution,
 		sort_id: sort_id,
 		size: size,
