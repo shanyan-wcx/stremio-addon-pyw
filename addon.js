@@ -49,6 +49,7 @@ builder.defineStreamHandler(async ({ type, id, config }) => {
 	id = temp[0]
 	var season = temp[1]
 	var episode = temp[2]
+	cookie = 'py_loginauth=' + cookie.split('py_loginauth=')[1]
 	if (type === "movie") {
 		streams = await getMovieStreams(baseurl, streams, id, cookie)
 		streams = await sortBy(streams)
